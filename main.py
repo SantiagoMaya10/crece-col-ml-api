@@ -176,22 +176,6 @@ app = FastAPI(
 This API provides predictions for company profit/loss (GANANCIA/PÉRDIDA) using an XGBoost machine learning model 
 trained on Colombian company data from the SuperSociedades dataset.
 
-## Model Details
-
-- **Algorithm**: XGBoost Regressor
-- **Features**: 81 features including financial metrics, macroeconomic indicators, and categorical variables
-- **Target**: Normalized profit/loss prediction (0-1 scale)
-- **R² Score**: 0.1465 (explains ~15% of variance)
-- **MAE**: 0.015 (average prediction error in normalized scale)
-
-## Key Predictors
-
-1. **Operational Income** (~36% importance) - Most important predictor
-2. **Total Equity** (~10% importance)
-3. **Economic Sector** (Commerce, Mining, Services, Manufacturing)
-4. **Geographic Region** (Pacific Coast, Atlantic Coast)
-5. **Year** (temporal trends)
-
 ## Usage
 
 All financial values should be **normalized (0-1 scale)** before sending to the API.
