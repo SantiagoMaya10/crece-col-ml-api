@@ -20,7 +20,8 @@ model = None
 def load_model():
     global model
     if os.path.exists(MODEL_FILE):
-        model = xgb.XGBRegressor()
+        # Use Booster directly to avoid Scikit-Learn wrapper version mismatches
+        model = xgb.Booster()
         model.load_model(MODEL_FILE)
         print("Model loaded successfully.")
     else:
@@ -116,7 +117,7 @@ class PredictionInput(BaseModel):
 
     class Config:
         populate_by_name = True
-        schema_extra = {
+        json_schema_extra = {
             "example": {
                 "INGRESOS OPERACIONALES": 0.5,
                 "TOTAL ACTIVOS": 0.5,
@@ -137,7 +138,6 @@ class PredictionInput(BaseModel):
                 "REGIÓN_Otros": 0,
                 "Departamento_AMAZONAS": 0,
                 "Departamento_BOGOTA": 1,
-                # ... add other fields as 0 for example ...
             }
         }
 
@@ -238,26 +238,19 @@ def predict(input_data: PredictionInput):
     data_dict = input_data.dict(by_alias=True)
     
     # Ensure correct order of columns as expected by the model
-    # We use NAME_MAPPING values to enforce the order if we have the list
-    # But since we built the Pydantic model from the column list, we can trust the keys
-    
-    # Create DataFrame
-    # Note: We must ensure the columns are exactly in the order the model expects.
-    # The Pydantic model fields are defined in order, so iterating over NAME_MAPPING values should work if NAME_MAPPING is ordered.
-    # Python 3.7+ dicts preserve insertion order.
-    
     ordered_columns = list(NAME_MAPPING.values())
-    
-    # Verify we have all columns
-    # (Pydantic ensures we have the data, but we need to structure it correctly for XGBoost)
     
     input_df = pd.DataFrame([data_dict])
     
     # Reorder columns just to be safe
     input_df = input_df[ordered_columns]
     
+    # Convert to DMatrix for Booster
+    dmatrix = xgb.DMatrix(input_df)
+    
     try:
-        prediction = model.predict(input_df)
+        prediction = model.predict(dmatrix)
+        # Booster.predict returns a numpy array
         return {"prediction": float(prediction[0])}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
