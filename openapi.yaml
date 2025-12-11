@@ -1,0 +1,274 @@
+openapi: 3.0.3
+info:
+  title: Supersociedades ML API
+  version: 1.0.0
+  description: |
+    REST API exposing the trained XGBoost regression model stored in `models/xgboost_model.json`.
+    Use `/predict` to score one or more observations and `/health` to verify readiness.
+servers:
+  - url: https://<your-railway-app>.up.railway.app
+    description: Railway deployment
+  - url: http://localhost:8000
+    description: Local development
+paths:
+  /:
+    get:
+      summary: Landing message
+      responses:
+        '200':
+          description: API greeting
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+  /health:
+    get:
+      summary: Health check
+      responses:
+        '200':
+          description: Service is ready
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: ok
+  /predict:
+    post:
+      summary: Score one or more records
+      description: |
+        All 81 features used during training are required for every record.
+        The order in the payload does not matter; the service will reorder internally.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PredictionRequest'
+            example:
+              records:
+                - INGRESOS OPERACIONALES: 0.3
+                  TOTAL ACTIVOS: 0.25
+                  TOTAL PASIVOS: 0.1
+                  TOTAL PATRIMONIO: 0.15
+                  Year: 2022
+                  TRM_Promedio: 0.87
+                  IPC_Promedio: 0.0
+                  Inflacion_Promedio: 0.33
+                  Inversion_Extranjera_Total: 0.0
+                  PIB_Departamental: 0.07
+                  REGIÓN_Antioquia: 1
+                  REGIÓN_Bogotá - Cundinamarca: 0
+                  REGIÓN_Centro - Oriente: 0
+                  REGIÓN_Costa Atlántica: 0
+                  REGIÓN_Costa Pacífica: 0
+                  REGIÓN_Eje Cafetero: 0
+                  REGIÓN_Otros: 0
+                  Departamento_AMAZONAS: 0
+                  Departamento_ANTIOQUIA: 1
+                  Departamento_ARAUCA: 0
+                  Departamento_ARMENIA: 0
+                  Departamento_ATLANTICO: 0
+                  Departamento_BOGOTA: 0
+                  Departamento_BOLIVAR: 0
+                  Departamento_BOYACA: 0
+                  Departamento_CALDAS: 0
+                  Departamento_CAQUETA: 0
+                  Departamento_CASANARE: 0
+                  Departamento_CAUCA: 0
+                  Departamento_CESAR: 0
+                  Departamento_CHOCO: 0
+                  Departamento_CORDOBA: 0
+                  Departamento_CUNDINAMARCA: 0
+                  Departamento_GUAINIA: 0
+                  Departamento_GUAJIRA: 0
+                  Departamento_GUAVIARE: 0
+                  Departamento_HUILA: 0
+                  Departamento_LA GUAJIRA: 0
+                  Departamento_MAGDALENA: 0
+                  Departamento_META: 0
+                  Departamento_MONTERIA: 0
+                  Departamento_NARINO: 0
+                  Departamento_NORTE DE SANTANDER: 0
+                  Departamento_PUTUMAYO: 0
+                  Departamento_QUINDIO: 0
+                  Departamento_RISARALDA: 0
+                  Departamento_SAN ANDRES Y PROVIDENCIA: 0
+                  Departamento_SANTANDER: 0
+                  Departamento_SUCRE: 0
+                  Departamento_TOLIMA: 0
+                  Departamento_VALLE: 0
+                  Departamento_VALLEDUPAR: 0
+                  Departamento_VAUPES: 0
+                  Departamento_VICHADA: 0
+                  MACROSECTOR_AGROPECUARIO: 0
+                  MACROSECTOR_COMERCIO: 1
+                  MACROSECTOR_CONSTRUCCIÓN: 0
+                  MACROSECTOR_MANUFACTURA: 0
+                  MACROSECTOR_MINERO: 0
+                  MACROSECTOR_SERVICIOS: 0
+                  CIIU_1,410: 0
+                  CIIU_2,229: 0
+                  CIIU_4,111: 0
+                  CIIU_4,290: 0
+                  CIIU_4,511: 0
+                  CIIU_4,530: 0
+                  CIIU_4,620: 0
+                  CIIU_4,631: 0
+                  CIIU_4,645: 0
+                  CIIU_4,659: 0
+                  CIIU_4,663: 0
+                  CIIU_4,664: 0
+                  CIIU_4,690: 0
+                  CIIU_4,711: 0
+                  CIIU_4,731: 0
+                  CIIU_6,810: 0
+                  CIIU_7,112: 0
+                  CIIU_8,010: 0
+                  CIIU_8,610: 0
+                  CIIU_8,621: 0
+                  CIIU_Other: 1
+      responses:
+        '200':
+          description: Successful prediction
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PredictionResponse'
+        '400':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  detail:
+                    type: string
+        '500':
+          description: Server or model error
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  detail:
+                    type: string
+components:
+  schemas:
+    PredictionRequest:
+      type: object
+      properties:
+        records:
+          type: array
+          items:
+            $ref: '#/components/schemas/PredictionRecord'
+      required: [records]
+    PredictionRecord:
+      type: object
+      description: All 81 features required (see `feature_order`).
+      additionalProperties:
+        type: number
+      required:
+        - INGRESOS OPERACIONALES
+        - TOTAL ACTIVOS
+        - TOTAL PASIVOS
+        - TOTAL PATRIMONIO
+        - Year
+        - TRM_Promedio
+        - IPC_Promedio
+        - Inflacion_Promedio
+        - Inversion_Extranjera_Total
+        - PIB_Departamental
+        - REGIÓN_Antioquia
+        - REGIÓN_Bogotá - Cundinamarca
+        - REGIÓN_Centro - Oriente
+        - REGIÓN_Costa Atlántica
+        - REGIÓN_Costa Pacífica
+        - REGIÓN_Eje Cafetero
+        - REGIÓN_Otros
+        - Departamento_AMAZONAS
+        - Departamento_ANTIOQUIA
+        - Departamento_ARAUCA
+        - Departamento_ARMENIA
+        - Departamento_ATLANTICO
+        - Departamento_BOGOTA
+        - Departamento_BOLIVAR
+        - Departamento_BOYACA
+        - Departamento_CALDAS
+        - Departamento_CAQUETA
+        - Departamento_CASANARE
+        - Departamento_CAUCA
+        - Departamento_CESAR
+        - Departamento_CHOCO
+        - Departamento_CORDOBA
+        - Departamento_CUNDINAMARCA
+        - Departamento_GUAINIA
+        - Departamento_GUAJIRA
+        - Departamento_GUAVIARE
+        - Departamento_HUILA
+        - Departamento_LA GUAJIRA
+        - Departamento_MAGDALENA
+        - Departamento_META
+        - Departamento_MONTERIA
+        - Departamento_NARINO
+        - Departamento_NORTE DE SANTANDER
+        - Departamento_PUTUMAYO
+        - Departamento_QUINDIO
+        - Departamento_RISARALDA
+        - Departamento_SAN ANDRES Y PROVIDENCIA
+        - Departamento_SANTANDER
+        - Departamento_SUCRE
+        - Departamento_TOLIMA
+        - Departamento_VALLE
+        - Departamento_VALLEDUPAR
+        - Departamento_VAUPES
+        - Departamento_VICHADA
+        - MACROSECTOR_AGROPECUARIO
+        - MACROSECTOR_COMERCIO
+        - MACROSECTOR_CONSTRUCCIÓN
+        - MACROSECTOR_MANUFACTURA
+        - MACROSECTOR_MINERO
+        - MACROSECTOR_SERVICIOS
+        - CIIU_1,410
+        - CIIU_2,229
+        - CIIU_4,111
+        - CIIU_4,290
+        - CIIU_4,511
+        - CIIU_4,530
+        - CIIU_4,620
+        - CIIU_4,631
+        - CIIU_4,645
+        - CIIU_4,659
+        - CIIU_4,663
+        - CIIU_4,664
+        - CIIU_4,690
+        - CIIU_4,711
+        - CIIU_4,731
+        - CIIU_6,810
+        - CIIU_7,112
+        - CIIU_8,010
+        - CIIU_8,610
+        - CIIU_8,621
+        - CIIU_Other
+    PredictionResponse:
+      type: object
+      properties:
+        predictions:
+          type: array
+          items:
+            type: number
+          description: Model outputs in the same order as provided records
+        model_version:
+          type: string
+          description: Nanosecond-level modification time of the model file
+        feature_order:
+          type: array
+          items:
+            type: string
+          description: Ordered list of features used for inference
+      required: [predictions, model_version, feature_order]
