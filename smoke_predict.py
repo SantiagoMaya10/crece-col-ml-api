@@ -1,17 +1,17 @@
-"""Offline smoke test to verify the bundled model works."""
+"""Offline smoke test to verify preprocessing + model inference."""
 
 import json
 from pathlib import Path
 
-import pandas as pd
-
-from app.main import FEATURE_ORDER, load_model
+from app.main import FEATURE_ORDER, load_model, load_preprocessor
 
 
 def main() -> None:
     payload = json.loads(Path("sample_payload.json").read_text())
     records = payload["records"]
-    df = pd.DataFrame(records)[FEATURE_ORDER].astype(float)
+
+    prep = load_preprocessor(FEATURE_ORDER)
+    df = prep.transform(records)
 
     model = load_model()
     preds = model.predict(df)

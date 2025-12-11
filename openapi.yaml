@@ -1,10 +1,11 @@
 openapi: 3.0.3
 info:
   title: Supersociedades ML API
-  version: 1.0.0
+  version: 1.1.0
   description: |
     REST API exposing the trained XGBoost regression model stored in `models/xgboost_model.json`.
-    Use `/predict` to score one or more observations and `/health` to verify readiness.
+    The service applies the same preprocessing used during training (MinMax scaling + one-hot encoding)
+    starting from raw business fields.
 servers:
   - url: https://<your-railway-app>.up.railway.app
     description: Railway deployment
@@ -38,12 +39,27 @@ paths:
                   status:
                     type: string
                     example: ok
+  /schema:
+    get:
+      summary: Feature order after preprocessing
+      responses:
+        '200':
+          description: Ordered vector schema
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  feature_order:
+                    type: array
+                    items:
+                      type: string
   /predict:
     post:
       summary: Score one or more records
       description: |
-        All 81 features used during training are required for every record.
-        The order in the payload does not matter; the service will reorder internally.
+        Provide raw fields; the service handles normalization and one-hot encoding to match the trained model.
+        Unknown CIIU codes are mapped to `Other` (top-20 kept), and department labels are normalized.
       requestBody:
         required: true
         content:
@@ -52,87 +68,20 @@ paths:
               $ref: '#/components/schemas/PredictionRequest'
             example:
               records:
-                - INGRESOS OPERACIONALES: 0.3
-                  TOTAL ACTIVOS: 0.25
-                  TOTAL PASIVOS: 0.1
-                  TOTAL PATRIMONIO: 0.15
+                - INGRESOS_OPERACIONALES: 144.82
+                  TOTAL_ACTIVOS: 216.85
+                  TOTAL_PASIVOS: 125.81
+                  TOTAL_PATRIMONIO: 91.03
                   Year: 2022
-                  TRM_Promedio: 0.87
-                  IPC_Promedio: 0.0
-                  Inflacion_Promedio: 0.33
+                  TRM_Promedio: 4251.469663865546
+                  IPC_Promedio: null
+                  Inflacion_Promedio: 2022.0
                   Inversion_Extranjera_Total: 0.0
-                  PIB_Departamental: 0.07
-                  REGIÓN_Antioquia: 1
-                  REGIÓN_Bogotá - Cundinamarca: 0
-                  REGIÓN_Centro - Oriente: 0
-                  REGIÓN_Costa Atlántica: 0
-                  REGIÓN_Costa Pacífica: 0
-                  REGIÓN_Eje Cafetero: 0
-                  REGIÓN_Otros: 0
-                  Departamento_AMAZONAS: 0
-                  Departamento_ANTIOQUIA: 1
-                  Departamento_ARAUCA: 0
-                  Departamento_ARMENIA: 0
-                  Departamento_ATLANTICO: 0
-                  Departamento_BOGOTA: 0
-                  Departamento_BOLIVAR: 0
-                  Departamento_BOYACA: 0
-                  Departamento_CALDAS: 0
-                  Departamento_CAQUETA: 0
-                  Departamento_CASANARE: 0
-                  Departamento_CAUCA: 0
-                  Departamento_CESAR: 0
-                  Departamento_CHOCO: 0
-                  Departamento_CORDOBA: 0
-                  Departamento_CUNDINAMARCA: 0
-                  Departamento_GUAINIA: 0
-                  Departamento_GUAJIRA: 0
-                  Departamento_GUAVIARE: 0
-                  Departamento_HUILA: 0
-                  Departamento_LA GUAJIRA: 0
-                  Departamento_MAGDALENA: 0
-                  Departamento_META: 0
-                  Departamento_MONTERIA: 0
-                  Departamento_NARINO: 0
-                  Departamento_NORTE DE SANTANDER: 0
-                  Departamento_PUTUMAYO: 0
-                  Departamento_QUINDIO: 0
-                  Departamento_RISARALDA: 0
-                  Departamento_SAN ANDRES Y PROVIDENCIA: 0
-                  Departamento_SANTANDER: 0
-                  Departamento_SUCRE: 0
-                  Departamento_TOLIMA: 0
-                  Departamento_VALLE: 0
-                  Departamento_VALLEDUPAR: 0
-                  Departamento_VAUPES: 0
-                  Departamento_VICHADA: 0
-                  MACROSECTOR_AGROPECUARIO: 0
-                  MACROSECTOR_COMERCIO: 1
-                  MACROSECTOR_CONSTRUCCIÓN: 0
-                  MACROSECTOR_MANUFACTURA: 0
-                  MACROSECTOR_MINERO: 0
-                  MACROSECTOR_SERVICIOS: 0
-                  CIIU_1,410: 0
-                  CIIU_2,229: 0
-                  CIIU_4,111: 0
-                  CIIU_4,290: 0
-                  CIIU_4,511: 0
-                  CIIU_4,530: 0
-                  CIIU_4,620: 0
-                  CIIU_4,631: 0
-                  CIIU_4,645: 0
-                  CIIU_4,659: 0
-                  CIIU_4,663: 0
-                  CIIU_4,664: 0
-                  CIIU_4,690: 0
-                  CIIU_4,711: 0
-                  CIIU_4,731: 0
-                  CIIU_6,810: 0
-                  CIIU_7,112: 0
-                  CIIU_8,010: 0
-                  CIIU_8,610: 0
-                  CIIU_8,621: 0
-                  CIIU_Other: 1
+                  PIB_Departamental: 827.19
+                  REGION: Bogotá - Cundinamarca
+                  Departamento: BOGOTA
+                  MACROSECTOR: MINERO
+                  CIIU: "610"
       responses:
         '200':
           description: Successful prediction
@@ -141,7 +90,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/PredictionResponse'
         '400':
-          description: Validation error
+          description: Validation or preprocessing error
           content:
             application/json:
               schema:
@@ -166,95 +115,55 @@ components:
         records:
           type: array
           items:
-            $ref: '#/components/schemas/PredictionRecord'
+            $ref: '#/components/schemas/RawRecord'
       required: [records]
-    PredictionRecord:
+    RawRecord:
       type: object
-      description: All 81 features required (see `feature_order`).
-      additionalProperties:
-        type: number
+      description: Raw business fields before scaling/encoding.
+      properties:
+        INGRESOS_OPERACIONALES:
+          type: number
+        TOTAL_ACTIVOS:
+          type: number
+        TOTAL_PASIVOS:
+          type: number
+        TOTAL_PATRIMONIO:
+          type: number
+        Year:
+          type: integer
+        TRM_Promedio:
+          type: number
+        IPC_Promedio:
+          type: number
+          nullable: true
+        Inflacion_Promedio:
+          type: number
+        Inversion_Extranjera_Total:
+          type: number
+        PIB_Departamental:
+          type: number
+        REGION:
+          type: string
+        Departamento:
+          type: string
+        MACROSECTOR:
+          type: string
+        CIIU:
+          type: string
       required:
-        - INGRESOS OPERACIONALES
-        - TOTAL ACTIVOS
-        - TOTAL PASIVOS
-        - TOTAL PATRIMONIO
+        - INGRESOS_OPERACIONALES
+        - TOTAL_ACTIVOS
+        - TOTAL_PASIVOS
+        - TOTAL_PATRIMONIO
         - Year
         - TRM_Promedio
-        - IPC_Promedio
         - Inflacion_Promedio
         - Inversion_Extranjera_Total
         - PIB_Departamental
-        - REGIÓN_Antioquia
-        - REGIÓN_Bogotá - Cundinamarca
-        - REGIÓN_Centro - Oriente
-        - REGIÓN_Costa Atlántica
-        - REGIÓN_Costa Pacífica
-        - REGIÓN_Eje Cafetero
-        - REGIÓN_Otros
-        - Departamento_AMAZONAS
-        - Departamento_ANTIOQUIA
-        - Departamento_ARAUCA
-        - Departamento_ARMENIA
-        - Departamento_ATLANTICO
-        - Departamento_BOGOTA
-        - Departamento_BOLIVAR
-        - Departamento_BOYACA
-        - Departamento_CALDAS
-        - Departamento_CAQUETA
-        - Departamento_CASANARE
-        - Departamento_CAUCA
-        - Departamento_CESAR
-        - Departamento_CHOCO
-        - Departamento_CORDOBA
-        - Departamento_CUNDINAMARCA
-        - Departamento_GUAINIA
-        - Departamento_GUAJIRA
-        - Departamento_GUAVIARE
-        - Departamento_HUILA
-        - Departamento_LA GUAJIRA
-        - Departamento_MAGDALENA
-        - Departamento_META
-        - Departamento_MONTERIA
-        - Departamento_NARINO
-        - Departamento_NORTE DE SANTANDER
-        - Departamento_PUTUMAYO
-        - Departamento_QUINDIO
-        - Departamento_RISARALDA
-        - Departamento_SAN ANDRES Y PROVIDENCIA
-        - Departamento_SANTANDER
-        - Departamento_SUCRE
-        - Departamento_TOLIMA
-        - Departamento_VALLE
-        - Departamento_VALLEDUPAR
-        - Departamento_VAUPES
-        - Departamento_VICHADA
-        - MACROSECTOR_AGROPECUARIO
-        - MACROSECTOR_COMERCIO
-        - MACROSECTOR_CONSTRUCCIÓN
-        - MACROSECTOR_MANUFACTURA
-        - MACROSECTOR_MINERO
-        - MACROSECTOR_SERVICIOS
-        - CIIU_1,410
-        - CIIU_2,229
-        - CIIU_4,111
-        - CIIU_4,290
-        - CIIU_4,511
-        - CIIU_4,530
-        - CIIU_4,620
-        - CIIU_4,631
-        - CIIU_4,645
-        - CIIU_4,659
-        - CIIU_4,663
-        - CIIU_4,664
-        - CIIU_4,690
-        - CIIU_4,711
-        - CIIU_4,731
-        - CIIU_6,810
-        - CIIU_7,112
-        - CIIU_8,010
-        - CIIU_8,610
-        - CIIU_8,621
-        - CIIU_Other
+        - REGION
+        - Departamento
+        - MACROSECTOR
+        - CIIU
     PredictionResponse:
       type: object
       properties:
@@ -270,5 +179,5 @@ components:
           type: array
           items:
             type: string
-          description: Ordered list of features used for inference
+          description: Ordered list of features used for inference after preprocessing
       required: [predictions, model_version, feature_order]
