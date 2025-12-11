@@ -34,6 +34,7 @@ curl -X POST http://localhost:8000/predict \
 1. Push this repo to Railway.
 2. Use the `web` service; Railway detects `Procfile` and installs `requirements.txt`.
 3. No extra environment variables are required (model file already bundled under `models/`).
+4. Ensure Railway uses Python 3.10+ and installs `requirements.txt` (includes `scikit-learn` required by XGBoost's sklearn API).
 
 ## Files
 
@@ -41,3 +42,4 @@ curl -X POST http://localhost:8000/predict \
 - `models/xgboost_model.json` — exported XGBoost model from training.
 - `openapi.yaml` — OpenAPI 3.0 spec to import into Postman / SwaggerHub.
 - `sample_payload.json` — minimal example payload for `/predict`.
+- `smoke_predict.py` — offline check to run predictions locally.
