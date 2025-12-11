@@ -147,7 +147,8 @@ def load_model():
     """Load the XGBoost model from file."""
     global model
     if os.path.exists(MODEL_PATH):
-        model = xgb.XGBRegressor()
+        # Load as Booster for compatibility with different XGBoost versions
+        model = xgb.Booster()
         model.load_model(MODEL_PATH)
         return True
     return False
@@ -399,8 +400,9 @@ async def predict_single(data: CompanyFinancialData):
         # Prepare features
         features_df = prepare_features(data)
         
-        # Make prediction
-        prediction = model.predict(features_df)[0]
+        # Make prediction using DMatrix for Booster
+        dmatrix = xgb.DMatrix(features_df)
+        prediction = model.predict(dmatrix)[0]
         
         return PredictionResponse(
             predicted_profit_loss=float(prediction),
@@ -443,7 +445,9 @@ async def predict_batch(request: BatchPredictionRequest):
         
         for company_data in request.companies:
             features_df = prepare_features(company_data)
-            prediction = model.predict(features_df)[0]
+            # Make prediction using DMatrix for Booster
+            dmatrix = xgb.DMatrix(features_df)
+            prediction = model.predict(dmatrix)[0]
             
             predictions.append(
                 PredictionResponse(
